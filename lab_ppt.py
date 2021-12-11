@@ -51,33 +51,30 @@ class powerPoint:
                 picture.crop_left = 0
                 picture.crop_bottom = 0
                 picture.crop_right = 0
-                if os.path.isdir(cwd+"\\"+d):
-                    shutil.move(file, cwd+"\\"+d+"\\")
+                if os.path.isdir(cwd+"/"+d):
+                    shutil.move(file, cwd+"/"+d+"/")
                 else:
-                    os.mkdir(cwd+"\\"+d)
-                    shutil.move(file, cwd+"\\"+d+"\\")
-                
-    def test_layouts(self):
-        x = 8
-        while x <= 8:
-            print(x)
-            slide = self.prs.slides.add_slide(self.prs.slide_layouts[x])
-            title = slide.shapes.title
-            subtitle = slide.placeholders[2]
-            title.text = ("Lab Meeting " 
-                          + datetime.datetime.today().strftime('%Y-%m-%d'))
-            subtitle.text = "Nick Gregory"
-            placeholder  = slide.placeholders[1]
-            picture = placeholder.insert_picture("PR_boxplot_2019-01-03.png")
-            x+=1
+                    os.mkdir(cwd+"/"+d)
+                    shutil.move(file, cwd+"/"+d+"/")
+
 
     def get_graph_title(self, filename):
-        txtRe = re.compile('\w* (.*) by (.*).png', re.I)
+        txtRe = re.compile('(.*).png', re.I)
         match = txtRe.match(filename)
-        graph_title = f'Plot: {match[1]} by {match[2]}'
+        graph_title = f'Plot: {match[1]}'
         return graph_title
 
-
+    def compose_ppt(self, output_name):
+        cwd = os.getcwd()
+        d = datetime.datetime.today().strftime('%Y-%m-%d')
+        presentation = powerPoint()
+        presentation.make_title()
+        presentation.get_images()  # Moves the "gotten" images to the folder as it loads
+        # them into the pptx.
+        parameter = output_name
+        name = f"{parameter} summary.pptx"
+        presentation.prs.save(name)
+        shutil.move(name, cwd + "/" + d + "/")
 
 
 
@@ -89,7 +86,7 @@ if __name__ == "__main__":
     presentation.make_title()
     presentation.get_images()  # Moves the "gotten" images to the folder as it loads
     # them into the pptx.
-    parameter = 'bdi sum'
+    parameter = 'Anticluster'
     name = f"{parameter} summary.pptx"
     presentation.prs.save(name)
-    shutil.move(name, cwd + "\\" + d + "\\")
+    shutil.move(name, cwd + "/" + d + "/")

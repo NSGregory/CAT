@@ -3,13 +3,14 @@ from data_reader import dataReader
 from configs import Config
 
 
-class Analyzer():
+class Sorter():
     def __init__(self, data):
         self.configs = Config('configs.ini')
         self.heading = headingManager()
         self.data = data
+        self.paw_dict = self.paw_sort()
 
-    def paw_analysis(self):
+    def paw_sort(self):
         """This function depends on the headingManager library's index based approach.  Changes to that library or the
         base index of headings could make this function behave in unpredictable ways.
 
@@ -20,7 +21,7 @@ class Analyzer():
         nd_right_hind
         """
         parameter_list = ['nd_left_front', 'nd_right_front', 'nd_left_hind', 'nd_right_hind']
-        df = self.dataframe_by_parameter(parameter_list)
+        superlist = self.data.columns
 
         #sub parameters
         #todo: consider moving these to configs
@@ -35,8 +36,20 @@ class Analyzer():
         all_paw_parameters = [paw_print_parameters, stance_parameters, bodyspeed_parameters, contact_parameters,
                               stride_parameters, stand_parameters, max_intensity_parameters]
 
+        paw_dict = {'paw_print': self.subparameter(superlist, paw_print_parameters),
+                         'stand': self.subparameter(superlist, stand_parameters),
+                         'bodyspeed': self.subparameter(superlist, bodyspeed_parameters),
+                         'contact' : self.subparameter(superlist, contact_parameters),
+                         'stride' : self.subparameter(superlist, stride_parameters),
+                         'stance' : self.subparameter(superlist, stance_parameters),
+                         'max_intensity' : self.subparameter(superlist, max_intensity_parameters)
+                    }
 
-        return df  # temporary to allow for interactive iteration
+
+        return paw_dict
+
+    def parameter_sort(self, parameter):
+        pass
 
     def dataframe_by_parameter(self, parameter):
         data = self.data.dataset
@@ -44,14 +57,22 @@ class Analyzer():
         columns = self.heading.parameter_to_column_header(parameter)
         return data[columns]
 
-    def subparameter(self, super_list, subparameter_list):
+    def subparameter(self, super_list, subparameter_list, flat=False):
         output = []
         for parameter in subparameter_list:
             matching_items = [entry for entry in super_list if parameter in entry]
-            #keep this a flat list so its easier to compose the dataframe
-            for item in matching_items:
-                output.append(item)
+            if not flat:
+                output.append(matching_items)
+            #can make this a flat list so its easier to compose the dataframe
+            if flat:
+            #keeping list format to see if it helps with previewing
+                for item in matching_items:
+                    output.append(item)
         return output
+
+
+    def subparameter_with_depth(self, super_list, subparameter_list):
+        pass
 
 
 if '__main__' != __name__:
@@ -60,9 +81,9 @@ else:
     configs = Config('configs.ini')
     heading = headingManager()
     filename = configs.sample_data
-    dataset = dataReader(filename)
-    analysis = Analyzer(dataset)
-    df = analysis.paw_analysis()
+    dataset = dataReader(filename).dataset
+    analysis = Sorter(dataset)
+    pdict = analysis.paw_sort()
 
     paw_print_parameters = ['PrintLength_(mm)_Mean', 'PrintWidth_(mm)_Mean', 'PrintArea_(mm²)_Mean']
     stand_parameters = ['Stand_(s)_Mean','StandIndex_Mean']
@@ -74,5 +95,5 @@ else:
     max_intensity_parameters = ['MaxIntensityAt_(%)_Mean', 'MaxIntensity_Mean','MeanIntensity_Mean']
     all_paw_parameters = [paw_print_parameters, stance_parameters, bodyspeed_parameters, contact_parameters,
                               stride_parameters, stand_parameters, max_intensity_parameters]
-    cols = df.columns
+    cols = dataset.columns
     sp = analysis.subparameter(cols,stride_parameters)

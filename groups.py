@@ -21,16 +21,8 @@ from rpy2.robjects.conversion import localconverter
 
 class assignGroups:
 
-    def __init__(self, dataReader):
-        self.datasets=dataReader.datasets
-        self.graph=self.clean(dataReader.parameters['Graph']) #gives displayData a way to decide which columns to plot
-        self.treatment_groups=self.clean(dataReader.parameters["Group_Names"])
-        self.data_tabs=self.clean(dataReader.parameters["Data_tabs"])
-        self.vals=self.clean(dataReader.parameters["Vals"])
-        self.var_range=dataReader.parameters["Var_range"]
-        self.data_is_grouped=dataReader.parameters["Grouped"]
-        self.assignments=self.assign_datasets(self.datasets, self.vals, self.treatment_groups, self.data_tabs)
-        self.df_assignment_merge=self.merge_assignment_with_df(self.assignments, self.datasets)
+    def __init__(self, dataset):
+        self.data = dataset
 
     def clean(self, items):
         """removes unwanted whitespace across a comma separated string and converts to a list
@@ -58,10 +50,15 @@ class assignGroups:
 
         #subset of the original dataframe that will be used in analysis
         #any missing data will break the anticluster function
-        evaluated_subset = dataset[vals].dropna()
+        evaluated_subset = dataset[vals]
+
+        #eliminate non-numeric data
+        numeric_subset = evaluated_subset.select_dtypes(['number']).dropna()
+
+
 
         #converts pandas dataframe into an r object needed for the anticluster function
-        robject_dataframe = self.pandas_to_robject_dataframe(evaluated_subset)
+        robject_dataframe = self.pandas_to_robject_dataframe(numeric_subset)
 
         #create anticlustering object
         anticlust = importr("anticlust")
@@ -123,9 +120,34 @@ class assignGroups:
 
 if __name__=='__main__':
     from data_reader import dataReader
-    from gui import selectFile
-    file = selectFile.byGui()
-    data = dataReader(file)
+    from heading_manager import headingManager
+    from sort_data  import Sorter
+    from configs import Config
+    from display_data import displayData
+    cfg = Config('configs.ini')
+    data = dataReader(cfg.sample_data).dataset
     groups = assignGroups(data)
+    hd = headingManager()
+    srt = Sorter(data)
+    paw_dict = srt.paw_dict
+    paw_list = [paw_dict[key] for key in paw_dict.keys()]
+    tx = ['cfa', 'acid', 'ctrl']
+    tmp = []
+    for sublist in paw_list:
+        for subsublist in sublist:
+            for item in subsublist:
+                tmp.append(item)
+
+    print(tmp)
+    grp = groups.anticluster(data,tmp,tx)
+    assign_df = data
+    g_df = assign_df.select_dtypes(['number']).dropna(axis=1)
+    g_df['Group'] = grp['Assignments']
+    graph = displayData(g_df)
+    #graph.preview_plots(paw_dict)
+    graph.visualize_assignments(paw_dict, save=True)
+
+
+
     #base = importr("base")
     #anticlust = importr("anticlust")

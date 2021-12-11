@@ -21,37 +21,76 @@ class headingManager:
         self.index_header_file = self.configs.index_headings_csv
         self.header_out_file = self.configs.headings
         self.coordinates = self.configs #mnemonic for ease of use
+        self.index_list = self.index_column_heading_list()
+        self.custom_list = self.single_column_heading_list()
 
 
     def single_column_heading_list(self):
-        """For custom heading list."""
+        """
+        For custom heading list.
+
+        User provides an excel file containing only the entries they are interested in.  All entries are used in this
+        approach.
+        """
         heading_df = pd.read_excel(self.header_in_file, header=None)
         heading_list = [ x for x in heading_df[0] if x != 'nan']
         return heading_list
 
     def index_column_heading_list(self):
-        """For Index based approach"""
+        """
+        For Index based approach
+        """
         heading_df = pd.read_excel(self.index_header_file, header=None)
         heading_list = [ x for x in heading_df[0] if x != 'nan']
         return heading_list
 
     def slicer(self, list):
-        """For making coordinates into useable slicer objects.  Coordinates are located in configs.ini in the format of
+        """
+        For making coordinates into useable slicer objects.  Coordinates are located in configs.ini in the format of
         nd_variables_of_interest = [x, y] < -- y is meant to be included, thus the +1 on line b
         """
-        a = list[0]
-        b = list[1]+1
+        a = int(list[0])
+        b = int(list[1])+1
         return slice(a,b,1)
+
+    def fetch_coord_slice(self, target):
+        coords = self.coordinates.get_cfg('Coordinates', target)
+        return self.slicer(coords)
+
+    def column_list_by_parameter(self, parameter):
+        """
+        Input a string identifying the name of the group and will return the column heading list associated with it.
+        """
+        return self.index_list[self.fetch_coord_slice(parameter)]
+
+    def parameter_to_column_header(self, parameter):
+        """
+
+        :param coordinates: str or list of heading groups you want to include
+        :return: list of column header strings
+        """
+        if type(parameter) == str:
+            return self.heading.column_list_by_parameter(parameter)
+
+        elif type(parameter) == list:
+            output = []
+            nested_list = [self.column_list_by_parameter(x) for x in parameter]
+            for sub_list in nested_list:
+                for entry in sub_list:
+                    output.append(entry)
+            return output
+
+        else:
+            print(f"Unsupported type: {type(parameter)}")
 
 
 
 if __name__ == '__main__':
     heading = headingManager()
-    coord = heading.coordinates.nd_left_front
-    slice = heading.slicer(coord)
+    sl = heading.fetch_coord_slice(heading.coordinates.coordinates[0])
     heading_list = heading.single_column_heading_list()
     print(heading_list)
-    print(heading_list[slice])
+    print(heading_list[sl])
 
 
 

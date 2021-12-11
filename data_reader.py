@@ -53,6 +53,9 @@ class dataReader:
 
 
 if __name__ =='__main__':
+    from heading_manager import headingManager
+    heading = headingManager()
+    slice =heading.fetch_coord_slice(heading.coordinates.coordinates[0])
     from configs import Config
     lab = Config('configs.ini')
     data = dataReader(lab.sample_data)
