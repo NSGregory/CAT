@@ -74,6 +74,18 @@ class Sorter():
     def subparameter_with_depth(self, super_list, subparameter_list):
         pass
 
+    def remove_SD_columns(self, untreated_list ):
+        processed_list = []
+        for entry in untreated_list:
+            if "_SD" not in entry:
+                processed_list.append(entry)
+        return processed_list
+
+    def clean_data(self, untreated_data):
+        raw_df = untreated_data
+        pass
+
+
 
 if '__main__' != __name__:
     pass

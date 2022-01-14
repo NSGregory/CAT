@@ -12,6 +12,7 @@
    Output is a dictionary of dataframes enumerating the assignments.  If a single excel tab is analyzed, it will still
    be in the form of a dictionary.  This is to preserve the column name pairing with assignments for later use.
 """
+import matplotlib.pyplot as plt
 import pandas as pd
 
 import rpy2.robjects as ro
@@ -124,13 +125,16 @@ if __name__=='__main__':
     from sort_data  import Sorter
     from configs import Config
     from display_data import displayData
+    import seaborn as sns
+    import scipy.stats as stats
     cfg = Config('configs.ini')
-    data = dataReader(cfg.sample_data).dataset
+    data = dataReader(cfg.full_data).dataset
     groups = assignGroups(data)
     hd = headingManager()
     srt = Sorter(data)
     paw_dict = srt.paw_dict
     paw_list = [paw_dict[key] for key in paw_dict.keys()]
+    paw_list = srt.remove_SD_columns(paw_list)
     tx = ['cfa', 'acid', 'ctrl']
     tmp = []
     for sublist in paw_list:
@@ -142,11 +146,37 @@ if __name__=='__main__':
     grp = groups.anticluster(data,tmp,tx)
     assign_df = data
     g_df = assign_df.select_dtypes(['number']).dropna(axis=1)
+    z_df = g_df.apply(stats.zscore)
     g_df['Group'] = grp['Assignments']
     graph = displayData(g_df)
     #graph.preview_plots(paw_dict)
-    graph.visualize_assignments(paw_dict, save=True)
+    #graph.visualize_assignments(paw_dict, save=True)
 
+
+
+    # this portion for creating a heatmap
+    # z_df is a conversion of the dataframe to a z score
+    # stats.zscore requires only numbers be present
+    reduced_columns = srt.remove_SD_columns(z_df.columns)
+    z_df = z_df[reduced_columns]
+    hm_a = z_df[g_df['Group']=='acid'].dropna(axis=1)
+    hm_c = z_df[g_df['Group']=='ctrl'].dropna(axis=1)
+    hm_f = z_df[g_df['Group']=='cfa'].dropna(axis=1)
+
+    plt.figure(figsize=(18, 6))
+    plt.subplot(131)
+    plt.title('acid')
+    sns.heatmap(data=hm_a, vmin=-4, vmax=4)
+
+    plt.subplot(132)
+    plt.title('cfa')
+    sns.heatmap(data=hm_f, vmin=-4, vmax=4)
+
+    plt.subplot(133)
+    plt.title('ctrl')
+    sns.heatmap(data=hm_c, vmin=-4, vmax=4)
+
+    plt.tight_layout()
 
 
     #base = importr("base")

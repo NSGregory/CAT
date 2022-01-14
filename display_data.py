@@ -51,6 +51,7 @@ class displayData:
                                      data=df)
                     plot.set_ylim(0, range)
                     plt.setp(plot.get_xticklabels(), rotation=15)
+
                     x_place += 1
                     if x_place >= (num_columns):
                         y_place += 1
@@ -79,13 +80,14 @@ class displayData:
     def set_range(self, item):
         df = self.data
         output = 0
-
+        #print(item)
+        #print(df[item].max())
         if type(df[item].max()) == str or type(df[item].max()) == chr:
             #print(df[item].max())
             print("Something bad happened, a non-number was passed to set_range")
             pass
         elif df[item].max() < 1:
-            range = 1  # to cover percentages
+            range = df[item].max() * 1.2
         else:
             range = (df[item].max() * 1.2).__ceil__()  # make the upper limit on y axis slightly larger than max value
 
@@ -248,6 +250,86 @@ class displayData:
                     plt.savefig("Anticlustered " + safe_name + ".png")
                     plt.close()
 
+    def visualize_timepoints(self, parameter_dict, save=False):
+        parameters = parameter_dict.keys()
+        df = self.data
+        df = self.drop_noldus_null(df)
+        group_count = len(df['Group'].unique())
+        for parameter in parameters:
+            # plt.figure()
+            plot_list = parameter_dict[parameter] #l1
+            for subplot_list in plot_list: #l2
+                verified_subplot_list = self.select_valid_keys(subplot_list)
+                print(verified_subplot_list)
+                sns.set_theme(style="ticks", color_codes=True)
+                num_columns = 3
+                num_rows = (len(verified_subplot_list) / num_columns).__ceil__()  # rows*columns must be >= number of subplots
+                fig, axes = plt.subplots(num_rows,
+                                         num_columns,
+                                         figsize=(15, 8),
+                                         sharey=False)  # syntax note: (2,3) is 2 rows with 3 columns
+                fig.suptitle(parameter)
+                x_place = 0
+                y_place = 0
+                if num_rows > 1:
+                    for subplot in verified_subplot_list: #l3
+                        range = self.set_range(subplot)
+                        plot = sns.pointplot(x='Time_Point',
+                                           y=subplot,
+                                           hue='Group',
+
+                            ax=axes[y_place, x_place],
+                            data=df,
+                            legend=False)
+                        plot.get_legend().remove()
+                        plot = sns.stripplot(x='Time_Point',
+                                           y=subplot,
+                                             hue='Group',
+                            ax=axes[y_place, x_place],
+                            alpha=0.7,
+                            jitter=0.2,
+
+                            data=df)
+                        plot.get_legend().remove()
+                        plot.set_ylim(0, range)
+                        plt.setp(plot.get_xticklabels(), rotation=15)
+                        x_place += 1
+                        if x_place >= (num_columns):
+                            y_place += 1
+                            x_place = 0
+                else:
+                    for subplot in subplot_list:
+                        #df = self.data
+                        range = self.set_range(subplot)
+                        plot = sns.pointplot(x='Time_Point',
+                                           y=subplot,
+                                           hue='Group',
+
+                                            ax=axes[x_place],
+                                             legend=False,
+                                           data=df)
+                        plot.get_legend().remove()
+                        plot = sns.stripplot(x='Time_Point',
+                                           y=subplot,
+                                             hue='Group',
+                                            ax=axes[x_place],
+                                             alpha=0.7,
+                                             jitter=0.2,
+
+                                             data=df)
+
+                        plot.set_ylim(0, range)
+                        plot.get_legend().remove()
+                        plt.setp(plot.get_xticklabels(), rotation=15)
+                        x_place += 1
+                h,l = plot.get_legend_handles_labels()
+                fig.legend(h[0:group_count], l[0:group_count], loc='upper right', ncol=group_count)
+                plt.tight_layout()
+                if save:
+                    safe_name = self.safe_filename(subplot)
+                    plt.savefig("Timepoints " + safe_name + ".png")
+                    plt.close()
+
     def safe_filename(self, filename):
         new_name = filename
         illegal_chars = ['/', '@', '#']
@@ -265,6 +347,14 @@ class displayData:
             df[val]=clean_series
             df = df[df[val] !=999] #in this dataset 999 is used to indicate an error
         return df
+
+    def drop_noldus_null(self, dataframe):
+        df = dataframe
+        output=pd.DataFrame()
+        for col in df.columns:
+            df = df[df[col] != '-']  # '-' is the indication for no data
+            output[col] = df[col]
+        return output.dropna(axis=1)
 
     def boxplot_clean_dataframe(self, dataframe, y_val=None):
         df = dataframe
@@ -308,10 +398,14 @@ if __name__ == '__main__':
     from data_reader import dataReader
     from configs import Config
     cfg = Config('configs.ini')
-    data = dataReader(cfg.sample_data)
+    data = dataReader(cfg.full_data)
     srt = Sorter(data.dataset)
     display_dict = srt.paw_dict
-    graph = displayData(data.dataset)
+    tmp_data = data.dataset
+    tmp_data[tmp_data == '-'] = np.nan
+    clean_data = tmp_data.dropna(axis=1)
+    graph = displayData(clean_data)
     #graph.preview_plots(display_dict)
-    graph.visualize_assignments(display_dict)
+    #graph.visualize_assignments(display_dict)
+    graph.visualize_timepoints(display_dict, save=True)
 

@@ -10,6 +10,7 @@ class Config:
         #filenames
         self.filename = filename
         self.sample_data = self.get_cfg('Filepaths','sample_data')
+        self.full_data = self.get_cfg('Filepaths', 'full_data')
         self.headings = self.get_cfg('Filepaths','header_pickle')
         self.headings_csv = self.get_cfg('Filepaths','header_excel')
         self.index_headings_csv = self.get_cfg('Filepaths', 'index_header_excel')

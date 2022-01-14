@@ -86,7 +86,7 @@ if __name__ == "__main__":
     presentation.make_title()
     presentation.get_images()  # Moves the "gotten" images to the folder as it loads
     # them into the pptx.
-    parameter = 'Anticluster'
+    parameter = 'Timepoints'
     name = f"{parameter} summary.pptx"
     presentation.prs.save(name)
     shutil.move(name, cwd + "/" + d + "/")
