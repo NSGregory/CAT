@@ -14,6 +14,11 @@ from configs import Config
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import pingouin as pg
+from sklearn.preprocessing import StandardScaler
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+import time
 
 def make_target_and_data(dataset, verbose=False):
     """
@@ -257,17 +262,30 @@ def pca_weighted_dataframe(pca, dataframe):
 
     return pd.DataFrame(data)
 
+def standard_dataframe(dataframe):
+    """
+    uses the StandardScaler function to create a standardized dataframe, stripping out any non-numeric data
+    the group assignments are retained
+    :param dataframe: dataframe to be standardized
+    :return: standardized dataframe
+    """
+    scale = StandardScaler()
+    numeric = dataframe.select_dtypes(['number']).dropna(axis=1)
+    std = scale.fit_transform(numeric)
+    std_df = pd.DataFrame(data=std, columns=numeric.columns)
+    std_df['Group'] = np.array(dataframe['Group'])
+    return std_df
 
 
 if __name__ == '__main__':
-    from heading_manager import headingManager
     from sort_data import Sorter
     from data_reader import dataReader
     from configs import Config
     cfg = Config('configs.ini')
-    data = dataReader(cfg.full_data)
+    cfg.pierre_2 = cfg.get_cfg('Filepaths', 'pierre_2')
+    #data = dataReader(cfg.full_data)
+    data = dataReader(cfg.pierre_2)
     srt = Sorter(data.dataset)
-    display_dict = srt.paw_dict
     tmp_data = data.dataset
     tmp_data[tmp_data == '-'] = np.nan
     clean_data = tmp_data.dropna(axis=1)
@@ -278,27 +296,69 @@ if __name__ == '__main__':
 
     ##make some heatmaps for an overview
     clean = srt.remove_SD_columns(data.dataset)
-    b, p = split_pre_post(data.dataset[clean], 'baseline', '24h post treatment')
-    #b, p = split_pre_post(data.dataset[clean], 'Baseline', 'During drug')
+    #b, p = split_pre_post(data.dataset[clean], 'baseline', '24h post treatment')
+    b, p = split_pre_post(data.dataset[clean], 'Baseline', 'Drugday')
     diff = diff_frames(b,p)
     z_diff = z_frame(diff)
     #heatmaps(z_diff)
-    #pca, lda, X_r, X_r2 = PCA_v_LDA(diff)
-
-    valid_columns = np.unique(flatten_display_dict(display_dict, diff))
-    #tukey_df = yield_pairwise_tukey_across_dataframe(diff, valid_columns)
-    #parameters = list(tukey_df['Parameter'])
-    #parameters.append("Group")
-    #narrowed_df = diff[parameters]
+    pca, lda, X_r, X_r2 = PCA_v_LDA(diff)
+    valid_columns = p.select_dtypes(['number']).dropna(axis=1).columns
+    tukey_df = yield_pairwise_tukey_across_dataframe(diff, valid_columns)
+    parameters = list(tukey_df['Parameter'])
+    parameters.append("Group")
+    narrowed_df = diff[parameters]
 
     #reduced = diff.drop(['von_Frey', 'tweezer'], axis=1)
-    #pca, lda, X_r, X_r2 = PCA_v_LDA(narrowed_df)
+    pca, lda, X_r, X_r2 = PCA_v_LDA(narrowed_df)
 
-    catwalk_data_only = diff.drop(['NumberOfRunsUsedForCalculatingTrialStatistics', 'von_Frey', 'tweezer'], axis=1)
-    cdo_col = catwalk_data_only.columns
-    cdo_col = cdo_col[0]
-    cdo_tukey = yield_pairwise_tukey_across_dataframe(diff, cdo_col)
-    #pca, lda, X_r, X_r2 = PCA_v_LDA(catwalk_data_only)
+    #catwalk_data_only = diff.drop(['NumberOfRunsUsedForCalculatingTrialStatistics', 'von_Frey', 'tweezer'], axis=1)
+    catwalk_data_only = diff.drop(['NumberOfRunsUsedForCalculatingTrialStatistics'], axis=1)
+    std_cdo = standard_dataframe(catwalk_data_only)
+    grp, y, X = make_target_and_data(catwalk_data_only)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=50, test_size=0.33)
+    feature_names = [f"feature {i}" for i in range(X.shape[1])]
+    forest = RandomForestClassifier(random_state=0)
+    forest.fit(X_train, y_train)
+    importances = forest.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in forest.estimators_], axis=0)
+    rd_forest_importances = pd.Series(importances, index=catwalk_data_only.columns[0:138]) #185 vs 138
+    rd_forest_importances.sort_values(ascending=False)
+    #rd_forest_importances.plot.bar()
+    keep = rd_forest_importances[rd_forest_importances >= 0.02]
+    keep = keep.dropna(axis=0)
+    k_index = list(keep.index)
+    keep_X = catwalk_data_only[k_index] #without group
+    k_index.append('Group')
+    keep_df = catwalk_data_only[k_index]
+    pca, lda, Xr, Xr2 = PCA_v_LDA(keep_df)
+
+    fig, ax = plt.subplots()
+    rd_forest_importances.plot.bar(yerr=std, ax=ax)
+    ax.set_title("Feature importances using MDI")
+    ax.set_ylabel("Mean decrease in impurity")
+    fig.tight_layout()
+
+    start_time = time.time()
+    result = permutation_importance(
+        forest, X_test, y_test, n_repeats=10, random_state=42, n_jobs=2
+    )
+    elapsed_time = time.time() - start_time
+    print(f"Elapsed time to compute the importances: {elapsed_time:.3f} seconds")
+
+    forest_importances = pd.Series(result.importances_mean, index=feature_names)
+
+    fig, ax = plt.subplots()
+    forest_importances.plot.bar(yerr=result.importances_std, ax=ax)
+    ax.set_title("Feature importances using permutation on full model")
+    ax.set_ylabel("Mean accuracy decrease")
+    fig.tight_layout()
+    plt.show()
+
+    #cdo_col = catwalk_data_only.columns
+    #cdo_col = cdo_col[0]
+    #cdo_tukey = yield_pairwise_tukey_across_dataframe(diff, cdo_col)
+    #pca, lda, X_r, X_r2 = PCA_v_LDA(std_cdo)
     #tukey_df.to_excel('key_parameters.xlsx')
 
     #pc_frame = get_coefficients(pca)
@@ -306,9 +366,9 @@ if __name__ == '__main__':
     #lda_frame = get_coefficients(lda)
     #lda_out = get_coefficients(lda, orient='index')
 
-    #pca_w = pca_weighted_dataframe(pca, catwalk_data_only)
+    #pca_w = pca_weighted_dataframe(pca, std_cdo)
     #pca_w['Group']=catwalk_data_only['Group']
-    #pca, lda_2, X_r, X_r2 = PCA_v_LDA(pca_w)
+    #pca_2, lda_2, X_r, X_r2 = PCA_v_LDA(pca_w)
 
     #pca_to_lda_out = get_coefficients(lda_2, orient='index')
 

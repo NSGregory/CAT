@@ -29,6 +29,7 @@ from configs import Config
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import pingouin as pg
+from sklearn.preprocessing import StandardScaler
 
 def make_target_and_data(dataset):
     """
@@ -169,6 +170,7 @@ def LARS(X, y):
 
 def output_lasso(dataframe):
     X = dataframe.drop(['Group'], axis=1)
+    X = X.select_dtypes(['number']).dropna(axis=1)
     true_X = X.drop(['NumberOfRunsUsedForCalculatingTrialStatistics', 'von_Frey', 'tweezer'], axis=1)
     y_vF = X['von_Frey']
     y_tw = X['tweezer']
@@ -195,8 +197,10 @@ def output_lasso(dataframe):
 
 def lasso_by_group(dataframe):
     groups = np.unique(dataframe['Group'])
+    numeric = dataframe.select_dtypes(['number']).dropna(axis=1)
+    numeric['Group'] = np.array(dataframe['Group'])
     for treatment in groups:
-        selected_data = dataframe[dataframe['Group'] == treatment]
+        selected_data = numeric[numeric['Group'] == treatment]
         df_vF, df_tw = output_lasso(selected_data)
         df_vF.index.name=f'LASSO - {treatment} - von Frey'
         df_vF.columns=['von Frey']
@@ -239,7 +243,19 @@ def lars_by_group(dataframe):
 
 
 
-
+def standard_dataframe(dataframe):
+    """
+    uses the StandardScaler function to create a standardized dataframe, stripping out any non-numeric data
+    the group assignments are retained
+    :param dataframe: dataframe to be standardized
+    :return: standardized dataframe
+    """
+    scale = StandardScaler()
+    numeric = dataframe.select_dtypes(['number']).dropna(axis=1)
+    std = scale.fit_transform(numeric)
+    std_df = pd.DataFrame(data=std, columns=numeric.columns)
+    std_df['Group'] = np.array(dataframe['Group'])
+    return std_df
 
 
 if __name__ == '__main__':
@@ -250,7 +266,6 @@ if __name__ == '__main__':
     cfg = Config('configs.ini')
     data = dataReader(cfg.full_data)
     srt = Sorter(data.dataset)
-    display_dict = srt.paw_dict
     tmp_data = data.dataset
     tmp_data[tmp_data == '-'] = np.nan
     clean_data = tmp_data.dropna(axis=1)
@@ -269,7 +284,11 @@ if __name__ == '__main__':
     #hp_model = hyper_param(X,y)
     #lasso_by_group(diff)
     #lars_by_group(diff)
-    lars_by_group(p)
+    #lasso_by_group(p)
+    #p_vf, p_tw = output_lasso(p)
+    std_p = standard_dataframe(p)
+    #lasso_by_group(std_p)
+    #s_vf, s_tw = output_lasso(std_p)
 
 
 
