@@ -251,6 +251,7 @@ class displayData:
                     plt.close()
 
     def visualize_timepoints(self, parameter_dict, save=False):
+        print(parameter_dict)
         parameters = parameter_dict.keys()
         df = self.data
         df = self.drop_noldus_null(df)
@@ -400,7 +401,7 @@ if __name__ == '__main__':
     cfg = Config('configs.ini')
     data = dataReader(cfg.full_data)
     srt = Sorter(data.dataset)
-    display_dict = srt.paw_dict
+    display_dict = srt.full_display_dict()
     tmp_data = data.dataset
     tmp_data[tmp_data == '-'] = np.nan
     clean_data = tmp_data.dropna(axis=1)

@@ -33,6 +33,9 @@ class Config:
         #parameters for anticlustering
         self.anticluster_parameters = []
 
+        #behaviors
+        self.behaviors = self.get_cfg('Behaviors', 'behaviors')
+
     def get_cfg(self, group, config):
         if os.path.isfile(self.filename):
             parser = ConfigParser()
